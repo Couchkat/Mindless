@@ -48,3 +48,13 @@ test('the optimized plan is no worse than the order the list was written in', ()
 test('travel time is zero for the same place', () => {
   assert.strictEqual(travel('work', 'work', 'walk'), 0);
 });
+
+test('pinned places use real distances on Earth', () => {
+  const saved = { a: { ...PLACES.home }, b: { ...PLACES.pharmacy } };
+  Object.assign(PLACES.home, { lat: 42.4440, lng: -76.5019 });
+  Object.assign(PLACES.pharmacy, { lat: 42.4396, lng: -76.4970 });
+  const walk = travel('home', 'pharmacy', 'walk'), drive = travel('home', 'pharmacy', 'drive');
+  assert.ok(walk >= 8 && walk <= 16, `walk ${walk} min`); // about 0.4 mi straight, 0.5 mi by street
+  assert.ok(drive < walk);
+  PLACES.home = saved.a; PLACES.pharmacy = saved.b;
+});

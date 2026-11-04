@@ -5,15 +5,17 @@
 Writes index.html: open it directly, serve it with GitHub Pages, or publish it
 as a Claude artifact (where account storage, Google Calendar and AI turn on).
 """
+import re
 from pathlib import Path
 
 root = Path(__file__).parent
 src = root / "src"
 template = (src / "template.html").read_text()
-css = (src / "style.css").read_text()
+css = (root / "vendor" / "leaflet.css").read_text() + "\n" + (src / "style.css").read_text()
 engine = (src / "engine.js").read_text().replace(
     "if (typeof module !== 'undefined') module.exports = { PLACES, MODES, schedule, optimize, fmt, dur, travel };", "")
-app = (src / "app.js").read_text()
+leaflet = re.sub(r"//# sourceMappingURL=\S+", "", (root / "vendor" / "leaflet.js").read_text())
+app = leaflet + "\n" + (src / "maps.js").read_text() + "\n" + (src / "app.js").read_text()
 
 body = template.replace("/*CSS*/", "\n" + css).replace("/*ENGINE*/", engine).replace("/*APP*/", app)
 page = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'

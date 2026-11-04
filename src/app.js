@@ -156,6 +156,7 @@ function applyPlaces() {
   Object.keys(PLACE_DEFAULTS).forEach(k => { PLACES[k] = { ...PLACE_DEFAULTS[k], addr: '', ...((S.places || {})[k] || {}) }; });
   PLACES.home.addr = S.settings.homeAddr || ''; PLACES.work.addr = S.settings.workAddr || '';
   if (!(S.places.work || {}).name) PLACES.work.name = 'Work';
+  realAreas();
 }
 
 // A new day: archive yesterday, carry unfinished tasks forward.
@@ -383,7 +384,8 @@ function renderRailFoot() {
     + `<button class="theme-mini" data-themebtn>${icon('palette')}<span>Look: ${th.name}</span></button>`;
   $$('#railFoot [data-themebtn]').forEach(b => b.onclick = openTheme);
 }
-const mobileTop = right => `<div class="mobile-top"><div class="brand"><svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="6" cy="19" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="20" cy="7" r="3" fill="currentColor"/><path d="M6 16 V11 H14 V7 H17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2 2.2" stroke-linecap="round"/></svg>Mindless</div><div class="row" style="gap:6px"><button class="icon-btn" data-themebtn aria-label="Look and feel">${icon('palette')}</button>${right || ''}</div></div>`;
+const LOGO = `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="currentColor"/><path d="M19 45 C19 33, 45 37, 45 24" fill="none" stroke="var(--accent-ink)" stroke-width="4.6" stroke-linecap="round"/><circle cx="19" cy="46" r="5.4" fill="currentColor" stroke="var(--accent-ink)" stroke-width="3.6"/><circle cx="45" cy="20" r="6.4" fill="var(--accent-ink)"/></svg>`;
+const mobileTop = right => `<div class="mobile-top"><div class="brand">${LOGO}Mindless</div><div class="row" style="gap:6px"><button class="icon-btn" data-themebtn aria-label="Look and feel">${icon('palette')}</button>${right || ''}</div></div>`;
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -398,7 +400,7 @@ const SETUP_STEPS = [
   { t: 'Energy', s: 'When you focus best' },
   { t: 'Getting around', s: 'Travel, buffers, grouping' },
 ];
-const LAST_STEP = SETUP_STEPS.length - 1;
+const LAST_STEP = SETUP_STEPS.length - 1, PLACES_STEP = 2;
 function renderSetup() {
   const i = Math.min(S.setupStep, LAST_STEP), st = S.settings;
   const nav = SETUP_STEPS.map((x, k) => `<button type="button" data-step="${k}" ${k === i ? 'aria-current="step"' : ''} class="${k < i ? 'done' : ''}"><span class="n">${k < i ? icon('check') : k + 1}</span><span><b>${x.t}</b><span class="s">${x.s}</span></span></button>`).join('');
@@ -415,7 +417,8 @@ function renderSetup() {
     body = `<h2 class="h-page">Connect your calendars</h2>
       <p class="lede">Mindless reads when you’re busy and plans tasks around it. You can skip this and add events by hand.</p>
       <div class="panel" style="margin-top:20px">
-        ${cal('google', 'Google Calendar', 'G', 'Uses your Google Calendar connection in Claude. You approve access the first time.')}
+        ${cal('google', 'Google Calendar', 'G', 'Uses the Google Calendar connector in your Claude account. Claude asks you to allow it the first time.')}
+        ${gErrHTML()}
         ${cal('apple', 'Apple Calendar', 'A', 'Subscribe it to Google Calendar to use it here', true)}
         ${cal('outlook', 'Outlook', 'O', 'Work, school or personal Microsoft account', true)}
       </div>
@@ -429,14 +432,14 @@ function renderSetup() {
     body = `<h2 class="h-page">Where does your day happen?</h2>
       <p class="lede">These anchor every route. Travel times are measured from here.</p>
       <div class="panel form-grid" style="margin-top:20px">
-        <div class="field span"><label for="homeAddr">Home</label><input class="input" id="homeAddr" value="${esc(st.homeAddr)}" placeholder="Your street address" autocomplete="street-address"><span class="help">Shown on your plan and calendar blocks. Saved privately to your account.</span></div>
-        <div class="field span"><label for="workAddr">Work or school</label><input class="input" id="workAddr" value="${esc(st.workAddr)}" placeholder="Office, campus or cowork"></div>
+        <div class="field span"><label for="homeAddr">Home</label><div class="addr-row"><input class="input" id="homeAddr" value="${esc(st.homeAddr)}" placeholder="Your street address" autocomplete="street-address">${pinBtn('home')}</div><span class="help">Pin it so routes start from your real location. Saved privately to your account.</span></div>
+        <div class="field span"><label for="workAddr">Work or school</label><div class="addr-row"><input class="input" id="workAddr" value="${esc(st.workAddr)}" placeholder="Office, campus or cowork">${pinBtn('work')}</div></div>
         <div class="field"><label for="startAt">Start the day at</label><select class="input" id="startAt"><option value="home" ${st.startAt === 'home' ? 'selected' : ''}>Home</option><option value="work" ${st.startAt === 'work' ? 'selected' : ''}>Work or school</option></select></div>
         <div class="field"><span class="lbl">Plan between</span><div class="row" style="flex-wrap:nowrap"><input class="input tnum" type="time" id="dayStart" value="${toHM(st.dayStart)}" aria-label="Day starts"><span class="muted">and</span><input class="input tnum" type="time" id="dayEnd" value="${toHM(st.dayEnd)}" aria-label="Day ends"></div></div>
       </div>
       <h3 class="h-sec" style="margin:26px 0 4px">Your regular spots</h3>
-      <p class="small muted" style="margin:0 0 12px">Rename these to the places you actually go and set their hours. Each keeps its spot on the map, and Mindless checks the hours when it plans.</p>
-      <div class="panel places-edit">${Object.keys(PLACES).filter(k => k !== 'home' && k !== 'work').map(k => { const P = PLACES[k]; return `<div class="pl-row"><input class="input" data-pname="${k}" value="${esc(P.name)}" aria-label="Name for the ${esc(PLACE_DEFAULTS[k].name)} spot"><input class="input" data-paddr="${k}" value="${esc(P.addr || '')}" placeholder="Address (optional)" aria-label="${esc(P.name)} address"><span class="row" style="flex-wrap:nowrap;gap:6px"><input class="input tnum" type="time" data-popen="${k}" value="${toHM(Math.min(P.open, 1439))}" aria-label="${esc(P.name)} opens"><span class="muted small">to</span><input class="input tnum" type="time" data-pclose="${k}" value="${toHM(Math.min(P.close, 1439))}" aria-label="${esc(P.name)} closes"></span></div>`; }).join('')}</div>`;
+      <p class="small muted" style="margin:0 0 12px">Rename these to the places you actually go and set their hours. Pin them on the real map and Mindless plans with real distances; unpinned spots stay on the illustrated map.</p>
+      <div class="panel places-edit">${Object.keys(PLACES).filter(k => k !== 'home' && k !== 'work').map(k => { const P = PLACES[k]; return `<div class="pl-row"><input class="input" data-pname="${k}" value="${esc(P.name)}" aria-label="Name for the ${esc(PLACE_DEFAULTS[k].name)} spot"><span class="addr-row"><input class="input" data-paddr="${k}" value="${esc(P.addr || '')}" placeholder="Address (optional)" aria-label="${esc(P.name)} address">${pinBtn(k)}</span><span class="row" style="flex-wrap:nowrap;gap:6px"><input class="input tnum" type="time" data-popen="${k}" value="${toHM(Math.min(P.open, 1439))}" aria-label="${esc(P.name)} opens"><span class="muted small">to</span><input class="input tnum" type="time" data-pclose="${k}" value="${toHM(Math.min(P.close, 1439))}" aria-label="${esc(P.name)} closes"></span></div>`; }).join('')}</div>`;
   }
   if (i === 3) {
     const curves = { morning: 'M0 34 C 20 6, 40 4, 60 18 S 100 30, 120 34 S 160 38, 180 40', afternoon: 'M0 38 C 30 34, 50 26, 75 10 S 110 8, 130 26 S 165 38, 180 40', evening: 'M0 40 C 40 38, 80 34, 110 26 S 150 6, 180 10' };
@@ -481,9 +484,11 @@ function bindSetup() {
   $('#setupDone') && ($('#setupDone').onclick = () => { readSetupInputs(); S.onboarded = true; save(); refreshPlan(); toast('Preferences saved'); location.hash = 'add'; });
   $('#setupAll').onclick = () => { readSetupInputs(); S.onboarded = true; save(); refreshPlan(); toast('Using defaults. Change them any time in Setup.'); location.hash = 'add'; };
   bindThemePicker(() => { const n = $('#userName'); if (n) st.name = n.value.trim(); route(); });
+  $$('[data-perms]').forEach(b => b.onclick = openPerms);
   $$('[data-cal]').forEach(b => b.onclick = () => { if (b.dataset.cal !== 'google') return; if (st.calendars.google) gcalDisconnect(); else gcalConnect(); });
   $$('[data-pname]').forEach(inp => inp.onchange = () => { readPlaces(); });
   $$('[data-paddr],[data-popen],[data-pclose]').forEach(inp => inp.onchange = () => { readPlaces(); });
+  $$('[data-pin]').forEach(b => b.onclick = () => { readSetupInputs(); save(); openPinPicker(b.dataset.pin, () => route()); });
   $$('[data-sync]').forEach(b => b.onclick = () => { st.syncMode = b.dataset.sync; save(); route(); });
   $$('[data-peak]').forEach(b => b.onclick = () => { st.peak = b.dataset.peak; save(); route(); });
   $$('[data-mode-opt]').forEach(b => b.onclick = () => {
@@ -495,6 +500,10 @@ function bindSetup() {
   });
   const buf = $('#buffer'); if (buf) buf.oninput = () => { $('#bufferOut').textContent = `${buf.value} min`; };
   const cl = $('#cluster'); if (cl) cl.onclick = () => { st.cluster = !st.cluster; cl.setAttribute('aria-checked', st.cluster); save(); };
+}
+function pinBtn(k) {
+  const on = hasPin(k);
+  return `<button type="button" class="btn sm ${on ? 'pinned' : ''}" data-pin="${k}" aria-label="${on ? 'Move' : 'Pin'} ${esc(PLACES[k].name)} on the map">${icon('pin')}${on ? 'Pinned' : 'Pin'}</button>`;
 }
 function readPlaces() {
   $$('[data-pname]').forEach(inp => {
@@ -630,31 +639,65 @@ Rules: title is short and starts with a verb, with no times or durations in it. 
 
 // ---- Google Calendar (the viewer's own connector, through the page's mcp capability) ----
 const GSERVER = 'Google Calendar';
-const GCAL = { busy: false, last: null, pulledFor: null };
+const GCAL = { busy: false, last: null, pulledFor: null, err: null };
 const MARK = '#mindless';
 async function mcpApi() {
   const m = window.claude && window.claude.use ? await window.claude.use('mcp') : null;
-  if (!m) throw { code: 'unavailable_here' };
+  if (!m) throw { code: 'unavailable_here', message: 'window.claude.use("mcp") returned nothing' };
   return m;
 }
 function gErr(e) {
   const c = e && e.code;
-  if (c === 'unavailable_here') return 'Calendar access works when Mindless is open on claude.ai and you’re signed in.';
-  if (c === 'server_not_connected' || c === 'server_not_found') return 'Connect Google Calendar in Claude (Settings, Connectors), then try again.';
-  if (c === 'needs_reauth') return 'Google Calendar needs you to sign in again in your Claude connector settings.';
-  if (c === 'consent_required' || c === 'not_granted' || c === 'approval_required' || c === 'blocked_by_policy' || c === 'self_only') return 'Mindless needs your OK to use Google Calendar. Try again and allow it.';
-  if (c === 'rate_limited') return 'Google Calendar is busy. Try again in a minute.';
-  return 'Google Calendar didn’t respond. Try again in a moment.';
+  const M = {
+    unavailable_here: 'Calendar access only works when Mindless is opened on claude.ai (web or desktop app) while you’re signed in.',
+    not_granted: 'Calendar access isn’t turned on for this page. Open the page’s Permissions menu and allow Google Calendar.',
+    capability_disabled: 'This view of Claude can’t reach connectors. Open Mindless on claude.ai in a browser or the desktop app.',
+    capability_removed: 'This view of Claude can’t reach connectors. Open Mindless on claude.ai in a browser or the desktop app.',
+    server_not_connected: 'Google Calendar isn’t connected to your Claude account. Add it in Claude: Settings, then Connectors, then try again.',
+    server_not_found: 'Google Calendar isn’t connected to your Claude account. Add it in Claude: Settings, then Connectors, then try again.',
+    needs_reauth: 'Your Google Calendar connection expired. Reconnect it in Claude: Settings, then Connectors.',
+    selection_required: 'You have more than one Google Calendar connection. Pick one in the prompt Claude shows, then try again.',
+    not_in_manifest: 'Google Calendar was turned off for this page. Turn it back on from the page’s Permissions menu.',
+    approval_required: 'Claude needs your OK first. Press Connect again and choose Allow.',
+    consent_required: 'Claude needs your OK first. Press Connect again and choose Allow.',
+    blocked_by_policy: 'Your organization blocks Google Calendar here.',
+    server_unavailable: 'Google Calendar is having trouble right now. Try again in a minute.',
+    rate_limited: 'Too many calendar requests at once. Try again in a minute.',
+    tool_error: 'Google Calendar rejected the request.',
+  };
+  return M[c] || 'Google Calendar didn’t respond. Try again in a moment.';
+}
+function setGErr(e) {
+  GCAL.err = e ? { code: (e && e.code) || 'unknown', text: gErr(e), detail: String((e && e.message) || '').slice(0, 160) } : null;
+}
+function gErrHTML() {
+  if (!GCAL.err) return '';
+  const e = GCAL.err;
+  return `<div class="gerr" role="alert">${icon('x')}<div><b>${esc(e.text)}</b><span class="mono small muted">Code: ${esc(e.code)}${e.detail && e.detail !== e.text ? ` · ${esc(e.detail)}` : ''}</span>${['not_granted', 'not_in_manifest'].includes(e.code) ? '<button class="btn sm" data-perms style="margin-top:8px">Open permissions</button>' : ''}</div></div>`;
+}
+async function openPerms() {
+  const pm = window.claude && window.claude.use ? await window.claude.use('permissions') : null;
+  if (!pm) { toast('Open the Permissions menu at the top of this page.'); return; }
+  try { await pm.manage(); } catch (e) { toast('Open the Permissions menu at the top of this page.'); }
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function gcall(m, tool, input) {
+  try { return await m.callTool(GSERVER, tool, input); }
+  catch (e) {
+    if (e && e.retryable) { await sleep(Math.min(8000, e.retryAfterMs || 1500)); return await m.callTool(GSERVER, tool, input); }
+    throw e;
+  }
 }
 const localISO = (day, min) => `${day}T${toHM(Math.max(0, Math.min(1439, Math.round(min))))}:00`;
 async function gcalConnect() {
+  setGErr(null);
   S.settings.calendars.google = true; save();
   const ok = await gcalPull(true);
   if (!ok) { S.settings.calendars.google = false; save(); }
   route();
 }
 function gcalDisconnect() {
-  S.settings.calendars.google = false;
+  S.settings.calendars.google = false; setGErr(null);
   S.fixed = S.fixed.filter(f => !f.gid); S.synced = false; S.base = null;
   save(); refreshPlan(); route(); toast('Google Calendar disconnected. Blocks already added stay on your calendar.');
 }
@@ -663,8 +706,16 @@ async function gcalPull(manual) {
   GCAL.busy = true; if (manual && U.view) route();
   try {
     const m = await mcpApi();
-    const r = await m.callTool(GSERVER, 'list_events', { startTime: localISO(S.day, 0), endTime: `${nextDayKey(S.day)}T00:00:00`, orderBy: 'startTime', pageSize: 100 });
+    if (manual) {
+      // check the connection first, so a missing or expired connector gets a clear message
+      const lt = await m.listTools(GSERVER).catch(() => null);
+      const sv = lt && (lt.servers || []).find(x => x.server === GSERVER);
+      if (lt && !sv) throw { code: 'server_not_connected', message: 'Not in your Claude connectors' };
+      if (sv && sv.authStatus === 'needs_reauth') throw { code: 'needs_reauth', message: 'Connection expired' };
+    }
+    const r = await gcall(m, 'list_events', { startTime: localISO(S.day, 0), endTime: `${nextDayKey(S.day)}T00:00:00`, orderBy: 'startTime', pageSize: 100 });
     const pl = r && r.payload, evs = (pl && Array.isArray(pl.events)) ? pl.events : [];
+    if (pl && typeof pl === 'string') throw { code: 'tool_error', message: pl.slice(0, 160) };
     const own = new Set(S.gcal.ids || []);
     const mapped = [];
     evs.forEach(ev => {
@@ -676,17 +727,19 @@ async function gcalPull(manual) {
       const end = dayKey(b) === S.day ? b.getHours() * 60 + b.getMinutes() : 1440;
       if (end <= start) return;
       const place = S.placeFor[ev.id] || guessPlace((ev.summary || '') + ' ' + (ev.location || '')) || S.settings.home;
-      mapped.push({ id: 'g' + String(ev.id).replace(/[^a-zA-Z0-9]/g, '').slice(-24), gid: ev.id, title: ev.summary || 'Busy', start, end, place, source: 'Google Calendar' });
+      mapped.push({ id: 'g' + String(ev.id).replace(/[^a-zA-Z0-9]/g, '').slice(-24), gid: ev.id, title: ev.summary || 'Busy', start, end, place, source: 'Google Calendar', loc: ev.location || '' });
     });
     const sig = arr => JSON.stringify(arr.map(f => [f.gid, f.start, f.end, f.title]));
     const changed = sig(S.fixed.filter(f => f.gid)) !== sig(mapped);
     S.fixed = S.fixed.filter(f => !f.gid).concat(mapped);
-    GCAL.last = nowMin(); GCAL.pulledFor = S.day;
+    GCAL.last = nowMin(); GCAL.pulledFor = S.day; setGErr(null);
     if (changed) { save(); refreshPlan(); }
-    if (manual) toast(mapped.length ? `${mapped.length} ${mapped.length === 1 ? 'event' : 'events'} from Google Calendar for ${dayWord()}` : `No timed events on Google Calendar for ${dayWord()}`);
+    if (manual) toast(mapped.length ? `Connected. ${mapped.length} ${mapped.length === 1 ? 'event' : 'events'} from Google Calendar for ${dayWord()}` : `Connected. No timed events on Google Calendar for ${dayWord()}`);
     return true;
   } catch (e) {
+    setGErr(e);
     if (manual) toast(gErr(e));
+    try { console.warn('[Mindless] Google Calendar', e && e.code, e && e.message); } catch (_) {}
     return false;
   } finally { GCAL.busy = false; if (U.view) route(); }
 }
@@ -697,7 +750,7 @@ async function gcalPush() {
   try {
     const m = await mcpApi();
     for (const id of (S.gcal.ids || [])) {
-      try { await m.callTool(GSERVER, 'delete_event', { eventId: id, notificationLevel: 'NONE' }); }
+      try { await gcall(m, 'delete_event', { eventId: id, notificationLevel: 'NONE' }); }
       catch (e) { if (e && e.code !== 'tool_error') throw e; }
     }
     S.gcal.ids = []; save();
@@ -708,12 +761,12 @@ async function gcalPush() {
       const why = x.type === 'task' && x.reasons && x.reasons.length ? x.reasons.join(' ') + '\n\n' : '';
       const input = { summary, startTime: localISO(S.day, x.start), endTime: localISO(S.day, x.end), description: `${why}Planned by Mindless ${MARK}` };
       if (where && where.addr) input.location = where.addr;
-      const r = await m.callTool(GSERVER, 'create_event', input);
+      const r = await gcall(m, 'create_event', input);
       const ev = r && r.payload; if (ev && ev.id) { S.gcal.ids.push(ev.id); made++; }
     }
     S.gcal.day = S.day; S.synced = true; save();
-    toast(`${made} ${made === 1 ? 'block' : 'blocks'} on your Google Calendar`);
-  } catch (e) { toast(gErr(e)); }
+    setGErr(null); toast(`${made} ${made === 1 ? 'block' : 'blocks'} on your Google Calendar`);
+  } catch (e) { setGErr(e); toast(gErr(e)); }
   finally { GCAL.busy = false; route(); }
 }
 function resyncIfSynced() {
@@ -788,7 +841,7 @@ function renderAdd() {
     const g = S.settings.calendars.google;
     pane = `<div class="import-src"><div class="row" style="justify-content:space-between"><b>Google Calendar</b>${g ? `<span class="chip acc">${icon('check')}Connected</span>` : `<button class="btn sm" data-gconnect>Connect</button>`}</div>
         <p class="small muted" style="margin:8px 0 0">${g ? `Events for ${esc(dayWord())} come in as busy time. ${GCAL.last ? `Last checked ${fmt(GCAL.last)}.` : ''}` : 'Read your events so tasks fit around them. Uses your Google Calendar connection in Claude.'}</p>
-        ${g ? `<div class="row" style="margin-top:10px"><button class="btn sm" data-gsync ${GCAL.busy ? 'disabled' : ''}>${icon('refresh')}${GCAL.busy ? 'Checking…' : 'Check for new events'}</button></div>` : ''}</div>
+        ${g ? `<div class="row" style="margin-top:10px"><button class="btn sm" data-gsync ${GCAL.busy ? 'disabled' : ''}>${icon('refresh')}${GCAL.busy ? 'Checking…' : 'Check for new events'}</button></div>` : ''}${gErrHTML()}</div>
       <div class="import-src"><b>From another app</b>
         <p class="small muted" style="margin:8px 0 10px">Copy a list from Todoist, Notes or an email and paste it here. Each line becomes a task.</p>
         <textarea class="input" id="pasteList" style="min-height:96px" placeholder="Paste a list"></textarea>
@@ -903,6 +956,7 @@ function bindAdd() {
   $('#voiceAgain') && ($('#voiceAgain').onclick = () => { U.voice = 'idle'; U.voiceText = ''; route(); });
   $('#addVoice') && ($('#addVoice').onclick = () => { const n = U.voiceParsed.length; addTasks(U.voiceParsed, 'Voice'); U.voice = 'idle'; U.voiceText = ''; toast(`Added ${n} tasks from voice`); route(); });
   $$('[data-gconnect]').forEach(b => b.onclick = () => gcalConnect());
+  $$('[data-perms]').forEach(b => b.onclick = openPerms);
   $$('[data-gsync]').forEach(b => b.onclick = () => gcalPull(true));
   $('#doImport') && ($('#doImport').onclick = () => {
     const txt = $('#pasteList').value.trim();
@@ -998,7 +1052,7 @@ function renderSteps(p) {
   p.steps.forEach((s, i) => {
     if (c >= 0 && !nowPlaced && s.start >= c && i > 0) { out.push(nowLi); nowPlaced = true; }
     if (!nowPlaced && s.start < c && c < s.end && s.type !== 'travel' && s.type !== 'free') { /* now line goes after the current step */ }
-    if (s.type === 'travel') { out.push(`<li class="leg"><div class="time tnum">${fmtShort(s.start)}</div><div class="node"></div><div class="body">${icon(s.mode)}<b>${MODES[s.mode].label} ${s.minutes} min</b><span>to ${esc(PLACES[s.to].name)}, ${s.miles.toFixed(1)} mi${s.buffer ? `, plus ${s.buffer} min buffer` : ''}</span></div></li>`); return; }
+    if (s.type === 'travel') { out.push(`<li class="leg"><div class="time tnum">${fmtShort(s.start)}</div><div class="node"></div><div class="body">${icon(s.mode)}<b>${MODES[s.mode].label} ${s.minutes} min</b><span>to ${esc(PLACES[s.to].name)}, ${s.miles.toFixed(1)} mi${s.buffer ? `, plus ${s.buffer} min buffer` : ''}</span><a class="leg-dir" href="${esc(gmDir(s.from, s.to, s.mode))}" target="_blank" rel="noopener" aria-label="Directions to ${esc(PLACES[s.to].name)} in Google Maps">Directions</a></div></li>`); return; }
     if (s.type === 'break') { out.push(`<li class="leg brk"><div class="time tnum">${fmtShort(s.start)}</div><div class="node"></div><div class="body">${icon('leaf')}<b style="color:inherit">Break, ${dur(s.end - s.start)}</b><span class="muted">Stretch, refill your water.</span></div></li>`); return; }
     if (s.type === 'free') { if (s.end - s.start >= 3) out.push(`<li class="leg"><div class="time tnum">${fmtShort(s.start)}</div><div class="node"></div><div class="body">${icon('pause')}<span>Open time, ${dur(s.end - s.start)}</span></div></li>`); return; }
     const id = stepId(s), done = isStepDone(p, s, i), kept = p.baseTime != null && i < p.keptCount;
@@ -1284,9 +1338,12 @@ function renderMap() {
     ${homeMark}${stops}
   </svg>`;
 
+  const canLive = liveMapAvailable(p), live = canLive && U.mapKind !== 'drawn';
+  const unpinned = order.filter(k => !hasPin(k));
+  const gm = gmRouteLink(p);
   let lastArea = null;
   const listItems = p.steps.map((s, i) => {
-    if (s.type === 'travel') return `<div class="ml-leg">${icon(s.mode)}<span>${MODES[s.mode].label} ${s.minutes} min, ${s.miles.toFixed(1)} mi</span></div>`;
+    if (s.type === 'travel') return `<div class="ml-leg">${icon(s.mode)}<span>${MODES[s.mode].label} ${s.minutes} min, ${s.miles.toFixed(1)} mi</span><a class="ml-dir" href="${esc(gmDir(s.from, s.to, s.mode))}" target="_blank" rel="noopener" aria-label="Directions to ${esc(PLACES[s.to].name)} in Google Maps">Directions</a></div>`;
     if (s.type !== 'task' && s.type !== 'fixed') return '';
     const title = stepTitle(s);
     const real = s.type === 'fixed' || s.task.place;
@@ -1305,17 +1362,20 @@ function renderMap() {
     <div class="map-head row" style="justify-content:space-between;align-items:flex-end">
       <div><div class="eyebrow">${esc(longDate(S.day))}</div><h1 class="h-page" style="margin-top:6px">${isToday() ? 'Today’s' : 'Tomorrow’s'} route</h1>
       <p class="lede tnum" style="margin-top:6px">${order.length} places, ${dur(ps.travelMin)} of ${modeWord}, home by ${fmt(ps.finishAt)}.</p></div>
-      <button class="btn desk-only" data-replan>${icon('refresh')}Re-plan</button>
+      <div class="row desk-only">${gm ? `<a class="btn" href="${esc(gm.url)}" target="_blank" rel="noopener">${icon('map')}${gm.label}</a>` : ''}<button class="btn" data-replan>${icon('refresh')}Re-plan</button></div>
     </div>
+    ${gm ? `<a class="btn sm mob-only gm-mob" href="${esc(gm.url)}" target="_blank" rel="noopener">${icon('map')}${gm.label}</a>` : ''}
     <div class="map-grid">
-      <div class="map-pane">${svg}
+      <div class="map-pane ${live ? 'is-live' : ''}">${live ? `<div id="liveMap" class="live-map" role="application" aria-label="Live map of today’s route"></div>${unpinned.length ? `<div class="live-note">${unpinned.length} ${unpinned.length === 1 ? 'stop isn’t' : 'stops aren’t'} pinned yet, so ${unpinned.length === 1 ? 'it’s' : 'they’re'} only in the list. <a href="#setup" data-goplaces>Pin ${unpinned.length === 1 ? 'it' : 'them'}</a></div>` : ''}` : svg}
+        ${!canLive && !LIVE.blocked ? `<a class="live-cta" href="#setup" data-goplaces>${icon('pin')}Pin your real places for a live map</a>` : ''}
         <div class="map-tools">
           <div class="seg" role="group" aria-label="Travel mode">${st.modes.map(k => `<button data-mode="${k}" aria-pressed="${st.mode === k}">${icon(k)}<span>${MODES[k].label}</span></button>`).join('')}</div>
-          <div class="seg" role="group" aria-label="Map options"><button id="clusterBtn" aria-pressed="${st.cluster}" aria-label="Group areas">${icon('layers')}<span class="lbl-opt">Group areas</span></button></div>
+          ${canLive ? `<div class="seg" role="group" aria-label="Map style"><button data-mapkind="live" aria-pressed="${live}">Live</button><button data-mapkind="drawn" aria-pressed="${!live}">Drawn</button></div>` : ''}
+          ${live ? '' : `<div class="seg" role="group" aria-label="Map options"><button id="clusterBtn" aria-pressed="${st.cluster}" aria-label="Group areas">${icon('layers')}<span class="lbl-opt">Group areas</span></button></div>`}
         </div>
-        <div class="map-zoom" role="group" aria-label="Zoom"><button data-zoom="in" aria-label="Zoom in" title="Zoom in">${icon('plus')}</button><button data-zoom="out" aria-label="Zoom out" title="Zoom out">${icon('minus')}</button><button data-zoom="fit" aria-label="Show whole route" title="Show whole route">${icon('fit')}</button></div>
+        <div class="map-zoom" role="group" aria-label="Zoom" ${live ? 'hidden' : ''}><button data-zoom="in" aria-label="Zoom in" title="Zoom in">${icon('plus')}</button><button data-zoom="out" aria-label="Zoom out" title="Zoom out">${icon('minus')}</button><button data-zoom="fit" aria-label="Show whole route" title="Show whole route">${icon('fit')}</button></div>
         <div class="legend" aria-hidden="true">
-          <div class="r"><svg viewBox="0 0 34 8"><circle cx="4" cy="4" r="3.5" style="fill:var(--ink)"/></svg>Task stop</div>
+          ${live ? '<div class="r small muted">Straight lines between stops. Google Maps has turn-by-turn.</div>' : ''}<div class="r"><svg viewBox="0 0 34 8"><circle cx="4" cy="4" r="3.5" style="fill:var(--ink)"/></svg>Task stop</div>
           <div class="r"><svg viewBox="0 0 34 8"><rect x=".5" y=".5" width="7" height="7" rx="2" style="fill:var(--ink)"/></svg>Calendar event</div>
           <div class="r"><svg viewBox="0 0 34 8"><line x1="0" y1="4" x2="34" y2="4" style="stroke:var(--accent)" stroke-width="1.8" ${{ walk: 'stroke-dasharray=".2 3" stroke-linecap="round" stroke-width="2.4"', transit: 'stroke-dasharray="6 3"', bike: 'stroke-dasharray="8 2 1.5 2"', drive: 'stroke-width="2.6"' }[st.mode]}/></svg>${MODES[st.mode].label} route</div>
         </div>
@@ -1333,7 +1393,7 @@ function bindMap() {
     U.sel = U.sel === k ? null : k;
     $$('.ml-item').forEach(b => b.setAttribute('aria-pressed', b.dataset.place === U.sel));
     $$('svg.map .stop').forEach(g => g.classList.toggle('hot', g.dataset.place === U.sel));
-    $('svg.map').classList.toggle('has-sel', !!U.sel);
+    $('svg.map') && $('svg.map').classList.toggle('has-sel', !!U.sel);
     $$('svg.map .leg-path').forEach(pth => { const s = U.plan.steps[+pth.dataset.leg]; pth.classList.toggle('hot', !!U.sel && (s.from === U.sel || s.to === U.sel)); });
   };
   $$('.ml-item').forEach(b => b.onclick = () => { pick(b.dataset.place); if (U.sel && U.panTo) U.panTo(b.dataset.place); });
@@ -1356,8 +1416,10 @@ function bindMap() {
     const nb = $(`[data-mode="${S.settings.mode}"]`); nb && nb.focus();
     toast(d === 0 ? `${MODES[S.settings.mode].label}: same finish time` : `${MODES[S.settings.mode].label}: home ${dur(Math.abs(d))} ${d < 0 ? 'sooner' : 'later'}, at ${fmt(after)}`);
   });
-  $('#clusterBtn').onclick = () => { S.settings.cluster = !S.settings.cluster; save(); route(); $('#clusterBtn').focus(); };
+  $('#clusterBtn') && ($('#clusterBtn').onclick = () => { S.settings.cluster = !S.settings.cluster; save(); route(); $('#clusterBtn').focus(); });
   $$('[data-replan]').forEach(b => b.onclick = openReplan);
+  $$('[data-mapkind]').forEach(b => b.onclick = () => { U.mapKind = b.dataset.mapkind; U.drawRoute = true; route(); });
+  $$('[data-goplaces]').forEach(a => a.onclick = () => { S.setupStep = PLACES_STEP; save(); });
 
   // draggable bottom sheet (phones)
   const sheet = $('#sheet'), handle = $('#sheetHandle'), grid = $('.map-grid');
@@ -1381,6 +1443,13 @@ function bindMap() {
   handle.onpointerup = end; handle.onpointercancel = end;
   handle.onclick = e => { if (e.detail === 0) { const i = SNAPS.findIndex(s => s > (U.sheet || 34) + 1); setSnap(SNAPS[i === -1 ? 0 : i]); } };
 
+  if (LIVE.map && !$('#liveMap')) { LIVE.map.remove(); LIVE.map = null; }
+  if ($('#liveMap')) {
+    const order = []; U.plan.steps.forEach(s => { if ((s.type === 'task' && s.task.place) || s.type === 'fixed') { if (!order.includes(s.place)) order.push(s.place); } });
+    mountLiveMap(U.plan, order);
+    U.mapApply = () => LIVE.map && LIVE.map.invalidateSize();
+    return;
+  }
   // ---- pan and zoom (Google Maps style) ----
   const svg = $('svg.map'), pane = $('.map-pane');
   const mobileNow = () => matchMedia('(max-width: 820px)').matches;

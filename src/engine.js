@@ -24,9 +24,20 @@ const MODES = {
 const PEAKS = { morning: [480, 720], afternoon: [780, 990], evening: [1020, 1200] };
 
 function dist(a, b) { const A = PLACES[a], B = PLACES[b]; return Math.abs(A.x - B.x) + Math.abs(A.y - B.y); }
-function miles(a, b) { return dist(a, b) * 0.025; }
+// Real places: when both ends are pinned on the live map, use the straight-line
+// distance on Earth with a 1.3x street-detour factor, and per-mode city speeds.
+const REAL = { walk: { perMile: 20, fixed: 0 }, bike: { perMile: 6, fixed: 2 }, transit: { perMile: 3.6, fixed: 8 }, drive: { perMile: 2.6, fixed: 4 } };
+const pinned = k => PLACES[k] && typeof PLACES[k].lat === 'number' && typeof PLACES[k].lng === 'number';
+function realMiles(a, b) {
+  const A = PLACES[a], B = PLACES[b], R = 3958.8, rad = Math.PI / 180;
+  const dLat = (B.lat - A.lat) * rad, dLng = (B.lng - A.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(A.lat * rad) * Math.cos(B.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h))) * 1.3;
+}
+function miles(a, b) { return pinned(a) && pinned(b) ? realMiles(a, b) : dist(a, b) * 0.025; }
 function travel(a, b, mode) {
   if (!a || !b || a === b) return 0;
+  if (pinned(a) && pinned(b)) { const r = REAL[mode]; const mi = realMiles(a, b); return mi < 0.05 ? 0 : Math.max(2, Math.round(r.fixed + mi * r.perMile)); }
   const m = MODES[mode];
   return Math.max(2, Math.round(m.fixed + dist(a, b) * m.perUnit));
 }
