@@ -4,6 +4,8 @@
 
 You drop in your tasks however is easiest: a messy brain dump, a form, your voice, or a pasted list. Mindless weighs how long each one takes, where it happens, when places open and close, your deadlines, your calendar and when you focus best. It then builds an ordered plan with travel between stops and shows the route on a map.
 
+![Mindless demo: brain dump, plan, route map and re-plan](docs/mindless-demo.gif)
+
 ![Workflow screen](docs/desktop-plan.png)
 
 | Route map | On a phone |

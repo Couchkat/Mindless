@@ -469,3 +469,4 @@ svg.map .cluster-lbl{fill:var(--accent-text);font-size:calc(var(--u, .15) * 12px
 .hist li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
 .hist li:first-child { border-top: 0; }
 .mic:disabled { opacity: .45; cursor: not-allowed; }
+.input::placeholder{color:var(--ink-3);opacity:.7}
