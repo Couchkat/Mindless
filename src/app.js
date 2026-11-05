@@ -62,7 +62,7 @@ const SAMPLE_FIXED = () => [
 const DEFAULT_SETTINGS = () => ({
   mode: 'transit', modes: ['walk', 'transit', 'bike'], buffer: 5, breakLen: 10, breakEvery: 90, peak: 'morning',
   dayStart: hm('08:00'), dayEnd: hm('21:00'), home: 'home', homeAddr: '', workAddr: '', startAt: 'home',
-  cluster: true, calendars: { google: false, apple: false, outlook: false }, syncMode: 'two-way', theme: 'sage', appearance: 'system', name: '', font: 'inter',
+  cluster: true, calendars: { google: false, apple: false, outlook: false }, syncMode: 'two-way', theme: 'paper', appearance: 'system', name: '', font: 'neue', look: 3,
 });
 
 // ---------- dates and the real clock ----------
@@ -86,6 +86,7 @@ function normalize(x) {
   const f = fresh(), s = { ...f, ...(x || {}) };
   s.settings = { ...f.settings, ...(s.settings || {}) };
   s.settings.calendars = { ...f.settings.calendars, ...(s.settings.calendars || {}) };
+  if ((s.settings.look || 0) < 3) { s.settings.theme = 'paper'; s.settings.font = 'neue'; s.settings.look = 3; }
   ['tasks', 'fixed', 'later', 'history'].forEach(k => { if (!Array.isArray(s[k])) s[k] = []; });
   ['checked', 'places', 'placeFor'].forEach(k => { if (!s[k] || typeof s[k] !== 'object') s[k] = {}; });
   if (!s.gcal || !Array.isArray(s.gcal.ids)) s.gcal = { ids: [], day: null };
@@ -236,6 +237,7 @@ function refreshPlan() { U.plan = computePlan(); }
 // ---------- fonts ----------
 const SANS = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", SERIF = "Georgia, 'Times New Roman', serif", MONO = "ui-monospace, 'SFMono-Regular', Menlo, monospace";
 const FONTS = {
+  neue: { name: 'Helvetica Neue + Inter', mood: 'Swiss, quiet, precise', display: `'Helvetica Neue', Helvetica, 'Inter Tight', Arial, ${SANS}`, body: `Inter, ${SANS}`, label: `'IBM Plex Mono', ${MONO}`, w: 400, ls: '-.055em', lcase: 'uppercase', lls: '.14em', lsize: 0.74 },
   inter: { name: 'Inter Tight + IBM Plex Mono', mood: 'Crisp, receipt-like', display: `'Inter Tight', ${SANS}`, body: `'Inter Tight', ${SANS}`, label: `'IBM Plex Mono', ${MONO}`, w: 700, ls: '-.035em', lcase: 'uppercase', lls: '.06em', lsize: 0.88 },
   bricolage: { name: 'Bricolage Grotesque + Geist', mood: 'Modern, characterful', display: `'Bricolage Grotesque', ${SANS}`, body: `'Geist', ${SANS}`, label: `'Geist', ${SANS}`, w: 500, ls: '-.035em', lcase: 'none', lls: '0', lsize: 1 },
   fraunces: { name: 'Fraunces + Figtree', mood: 'Warm, bookish', display: `'Fraunces', ${SERIF}`, body: `'Figtree', ${SANS}`, label: `'Figtree', ${SANS}`, w: 500, ls: '-.025em', lcase: 'none', lls: '0', lsize: 1 },
@@ -252,12 +254,15 @@ function fontPicker() {
     return `<button type="button" role="radio" class="font-card" data-font-pick="${k}" aria-checked="${cur === k}">
       <span class="fc-aa" style="font-family:${f.display.replace(/"/g, '&quot;')};font-weight:${f.w};letter-spacing:${f.ls}">Done by 4:55</span>
       <span class="fc-lbl" style="font-family:${f.label.replace(/"/g, '&quot;')};text-transform:${f.lcase};letter-spacing:${f.lls}">3:00 PM, Corner Pharmacy</span>
-      <span class="tc-name">${f.name}</span><span class="tc-sub">${f.mood}${k === 'inter' ? ', default' : ''}</span></button>`;
+      <span class="tc-name">${f.name}</span><span class="tc-sub">${f.mood}${k === 'neue' ? ', default' : ''}</span></button>`;
   }).join('')}</div>`;
 }
 
 // ---------- themes ----------
 const THEMES = {
+  paper: { name: 'Paper', mood: 'White, black ink, a little sky',
+    light: { bg: '#FFFFFF', surface: '#FFFFFF', sunk: '#F7F8FA', ink: '#111111', ink2: '#5C6268', ink3: '#8A8F95', line: '#E7E7E7', line2: '#D6D8DB', accent: '#6F96CC', accentInk: '#FFFFFF', accentSoft: '#EEF4FB', accentLine: '#C7D9EF', accentText: '#3E6698' },
+    dark: { bg: '#0E0F11', surface: '#131417', sunk: '#191B1F', ink: '#F1F1EF', ink2: '#A3A8AE', ink3: '#71767D', line: '#25272B', line2: '#33363B', accent: '#9DBDE6', accentInk: '#0D1520', accentSoft: '#17202C', accentLine: '#2D4260', accentText: '#B6CEF0' } },
   sage: { name: 'Sage and mist', mood: 'Cool and quiet',
     light: { bg: '#F1F4F1', surface: '#FBFCFA', sunk: '#E6ECE7', ink: '#263330', ink2: '#4F5D58', ink3: '#76837E', line: '#DDE4DF', line2: '#C9D3CC', accent: '#4F7D69', accentInk: '#FFFFFF', accentSoft: '#E0EBE4', accentLine: '#A9C7B9', accentText: '#3B6452' },
     dark: { bg: '#131816', surface: '#1A211F', sunk: '#212926', ink: '#E4EBE7', ink2: '#AAB7B1', ink3: '#7F8C86', line: '#2A3330', line2: '#37423E', accent: '#8DBBA6', accentInk: '#102019', accentSoft: '#1E3029', accentLine: '#38594B', accentText: '#A9D1BF' } },
@@ -295,7 +300,7 @@ function applyTheme() {
   const st = S.settings;
   let el = document.getElementById('themeVars');
   if (!el) { el = document.createElement('style'); el.id = 'themeVars'; document.body.appendChild(el); }
-  el.textContent = themeCSS(THEMES[st.theme] || THEMES.sage) + '\n' + fontCSS(FONTS[st.font] || FONTS.inter);
+  el.textContent = themeCSS(THEMES[st.theme] || THEMES.paper) + '\n' + fontCSS(FONTS[st.font] || FONTS.neue);
   const r = document.documentElement;
   if (st.appearance === 'system') r.removeAttribute('data-appearance'); else r.setAttribute('data-appearance', st.appearance);
 }
@@ -376,7 +381,7 @@ window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); $(
 function renderRailFoot() {
   const c = S.settings.calendars, on = Object.keys(c).filter(k => c[k]);
   const names = { google: 'Google', apple: 'Apple', outlook: 'Outlook' };
-  const th = THEMES[S.settings.theme] || THEMES.sage;
+  const th = THEMES[S.settings.theme] || THEMES.paper;
   $('#railFoot').innerHTML = (on.length
     ? `<div><span class="sync-dot"></span>${on.map(k => names[k]).join(', ')} connected</div><div>${S.settings.syncMode === 'two-way' ? 'Two-way sync' : 'Read-only'}${S.synced ? ', plan synced' : ''}</div>`
     : `<div><span class="sync-dot off"></span>No calendar connected</div><a href="#setup">Connect one</a>`)

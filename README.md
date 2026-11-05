@@ -24,7 +24,7 @@ You drop in your tasks however is easiest: a messy brain dump, a form, your voic
 - **Works with your calendar.** It reads Google Calendar events as busy time and writes the plan back as calendar blocks, which update when you re-plan.
 - **Reads messy notes.** A built-in parser picks out durations, deadlines, places and "tonight". An optional AI read uses Claude for harder notes.
 - **Remembers you.** Tasks, check-offs, places, preferences and recent days save privately to your account and follow you across devices.
-- **Lets you choose the look.** There are six color themes with light and dark modes, and five font pairings.
+- **Lets you choose the look.** There are seven color themes with light and dark modes, and six font pairings. The default, Paper, is white with black ink, hairline rules and Swiss type.
 
 ## How the planner works
 
