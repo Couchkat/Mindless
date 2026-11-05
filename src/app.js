@@ -804,6 +804,32 @@ function loadSample() {
   save(); refreshPlan(); route(); toast('Sample day loaded. Remove any of it from the Tasks screen.');
 }
 
+// Tasks headline: a different prompt each time the page opens (never the same twice in a row).
+const ADD_HEADLINES = [
+  d => `What needs doing ${d}?`,
+  d => `What’s on your plate ${d}?`,
+  d => `What’s on the list ${d}?`,
+  d => `What are we tackling ${d}?`,
+  d => `What do you want to get done ${d}?`,
+  d => `What should ${d} hold?`,
+  d => `Let’s sort out ${d}.`,
+  d => `What’s ahead ${d}?`,
+];
+const ADD_HEADLINE_IDX = (() => {
+  let last = -1;
+  try { last = +localStorage.getItem('mindless-headline'); } catch (e) { /* storage unavailable */ }
+  let i = Math.floor(Math.random() * ADD_HEADLINES.length);
+  if (i === last) i = (i + 1 + Math.floor(Math.random() * (ADD_HEADLINES.length - 1))) % ADD_HEADLINES.length;
+  try { localStorage.setItem('mindless-headline', String(i)); } catch (e) { /* storage unavailable */ }
+  return i;
+})();
+function addHeadline() {
+  const d = dayWord();
+  // a long date reads oddly mid-sentence after "on"-less phrasing, so dates use "for <date>"
+  const word = d === 'today' || d === 'tomorrow' ? d : `for ${d}`;
+  return ADD_HEADLINES[ADD_HEADLINE_IDX](word);
+}
+
 // ================= ADD TASKS =================
 const DUMP_SAMPLE = `return library books, 10 min
 buy a birthday card for Theo before 6pm
@@ -861,7 +887,7 @@ function renderAdd() {
   }).join('');
   return `<div class="wrap">${mobileTop()}
     <div class="row" style="justify-content:space-between;align-items:center"><div class="eyebrow">${esc(longDate(S.day))}</div>${daySwitch()}</div>
-    <h1 class="h-page" style="margin-top:6px">What needs doing ${esc(dayWord())}?</h1>
+    <h1 class="h-page" style="margin-top:6px">${esc(addHeadline())}</h1>
     <p class="lede">Add tasks however is easiest. Mindless works out the order, the route and the timing.</p>
     <div class="add-grid">
       <section class="panel" aria-label="Add tasks">
